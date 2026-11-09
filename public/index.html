@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CineSync — Arkadaşlarınla Birlikte Film & YouTube İzle</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- HLS.js for .m3u8 stream links -->
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- Giris / Oda Olusturma Modal -->
+  <div id="join-modal" class="modal-backdrop">
+    <div class="modal-card">
+      <div class="modal-logo">
+        <span class="logo-icon">🍿</span>
+        <h1>CineSync</h1>
+      </div>
+      <p class="modal-subtitle">
+        2-3 arkadaş ortak <strong>YouTube</strong>, <strong>Film (Link/Lokal Dosya)</strong> veya <strong>Ekran Paylaşımı</strong> ile anlık senkronize izleyin.
+      </p>
+
+      <form id="join-form">
+        <div class="form-group">
+          <label for="username-input">Takma Adın (Nickname)</label>
+          <input
+            type="text"
+            id="username-input"
+            placeholder="Örn: Burak"
+            maxlength="24"
+            required
+            autocomplete="off"
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="room-input">Oda Kodu</label>
+          <div class="input-with-btn">
+            <input
+              type="text"
+              id="room-input"
+              placeholder="Örn: SINEMA-42"
+              maxlength="20"
+              required
+              autocomplete="off"
+            />
+            <button type="button" id="random-room-btn" class="btn-secondary" title="Rastgele Oda Kodu Üret">
+              🎲 Rastgele
+            </button>
+          </div>
+          <small class="form-hint">Arkadaşlarınla aynı oda kodunu gir veya içeriden davet linkini kopyala.</small>
+        </div>
+
+        <div class="form-group">
+          <label>Renk Seç</label>
+          <div class="color-picker" id="color-picker">
+            <button type="button" class="color-dot active" data-color="#8b5cf6" style="background:#8b5cf6"></button>
+            <button type="button" class="color-dot" data-color="#ec4899" style="background:#ec4899"></button>
+            <button type="button" class="color-dot" data-color="#3b82f6" style="background:#3b82f6"></button>
+            <button type="button" class="color-dot" data-color="#10b981" style="background:#10b981"></button>
+            <button type="button" class="color-dot" data-color="#f59e0b" style="background:#f59e0b"></button>
+            <button type="button" class="color-dot" data-color="#ef4444" style="background:#ef4444"></button>
+          </div>
+        </div>
+
+        <button type="submit" class="btn-primary btn-full">
+          🚀 Odaya Katıl / Oluştur
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Ana Uygulama Arayüzü -->
+  <div class="app-layout" id="app-layout">
+    <!-- Üst Menü (Header) -->
+    <header class="top-header">
+      <div class="brand">
+        <span class="brand-icon">🍿</span>
+        <span class="brand-name">CineSync</span>
+      </div>
+
+      <!-- 3 Özellik Sekmeleri -->
+      <nav class="mode-tabs" role="tablist">
+        <button class="mode-tab active" data-mode="youtube" id="tab-youtube">
+          <span class="tab-icon">▶️</span>
+          <span>YouTube</span>
+        </button>
+        <button class="mode-tab" data-mode="video" id="tab-video">
+          <span class="tab-icon">🎬</span>
+          <span>Film & Lokal Dosya</span>
+        </button>
+        <button class="mode-tab" data-mode="screen" id="tab-screen">
+          <span class="tab-icon">🖥️</span>
+          <span>Ekran Paylaşımı</span>
+        </button>
+      </nav>
+
+      <!-- Oda & Davet Bilgisi -->
+      <div class="header-actions">
+        <div class="room-badge" title="Aktif Oda Kodu">
+          <span class="room-label">ODA:</span>
+          <strong id="display-room-code">---</strong>
+        </div>
+        <button id="copy-invite-btn" class="btn-outline" title="Arkadaşlarına göndermek için davet linkini kopyala">
+          🔗 Davet Linki Kopyala
+        </button>
+        <button id="theater-mode-btn" class="btn-icon" title="Sinema Modu (Sohbeti Gizle/Göster)">
+          📐
+        </button>
+      </div>
+    </header>
+
+    <!-- İçerik Alanı: Sol/Orta Video Sahnesi + Sağ Canlı Sohbet -->
+    <main class="main-workspace">
+      <!-- Sol/Orta: Video Sahnesi ve Araç Çubukları -->
+      <section class="stage-section">
+        <!-- 1. YouTube Kontrol Çubuğu -->
+        <div class="media-toolbar" id="toolbar-youtube">
+          <form id="youtube-form" class="toolbar-form">
+            <input
+              type="text"
+              id="youtube-url-input"
+              placeholder="YouTube video linkini buraya yapıştırın (https://www.youtube.com/watch?v=...)"
+              autocomplete="off"
+            />
+            <button type="submit" class="btn-primary">Videoyu Aç</button>
+            <button type="button" id="yt-sync-btn" class="btn-secondary" title="Herkesle aynı saniyeye hizalan">
+              🔄 Senkronize Et
+            </button>
+          </form>
+        </div>
+
+        <!-- 2. Film Linki (.mp4/.m3u8) veya Lokal Dosya Kontrol Çubuğu -->
+        <div class="media-toolbar hidden" id="toolbar-video">
+          <div class="video-controls-grid">
+            <form id="video-url-form" class="toolbar-form">
+              <input
+                type="text"
+                id="video-url-input"
+                placeholder="Doğrudan film/video linki (.mp4, .webm, .m3u8)..."
+                autocomplete="off"
+              />
+              <button type="submit" class="btn-primary">Linki Aç</button>
+            </form>
+
+            <div class="local-file-actions">
+              <label for="local-video-input" class="btn-secondary file-label" title="Bilgisayarınızdaki aynı film dosyasını seçerek sıfır takılmayla senkronize izleyin">
+                📁 Bilgisayardan Film Seç
+                <input type="file" id="local-video-input" accept="video/*,.mkv" hidden />
+              </label>
+
+              <label for="subtitle-input" class="btn-secondary file-label" title="Altyazı dosyası ekle (.srt veya .vtt)">
+                💬 Altyazı (.srt/.vtt)
+                <input type="file" id="subtitle-input" accept=".srt,.vtt" hidden />
+              </label>
+
+              <button type="button" id="video-sync-btn" class="btn-secondary" title="Odayla aynı saniyeye hizalan">
+                🔄 Senkronize Et
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3. Ekran Paylaşımı (WebRTC) Kontrol Çubuğu -->
+        <div class="media-toolbar hidden" id="toolbar-screen">
+          <div class="screen-toolbar-inner">
+            <div class="screen-info">
+              <span class="badge-live" id="screen-status-badge">HAZIR</span>
+              <span id="screen-status-text">
+                Tarayıcı sekmesini (Netflix, BluTV, Web vb.) veya tüm ekranınızı ses dahil arkadaşlarınızla paylaşın.
+              </span>
+            </div>
+            <div class="screen-buttons">
+              <button type="button" id="start-screen-btn" class="btn-primary">
+                🖥️ Ekranımı Paylaş (Ses Dahil)
+              </button>
+              <button type="button" id="stop-screen-btn" class="btn-danger hidden">
+                🛑 Paylaşımı Durdur
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Oynatıcı Sahnesi -->
+        <div class="player-stage" id="player-stage">
+          <!-- YouTube Gömülü Oynatıcı -->
+          <div id="view-youtube" class="player-view">
+            <div id="youtube-placeholder" class="stage-placeholder">
+              <div class="placeholder-icon">▶️</div>
+              <h2>YouTube Birlikte İzle</h2>
+              <p>Üstteki çubuğa bir YouTube linki yapıştırın veya aşağıdaki örneklerden birini seçin.</p>
+              <div class="preset-chips">
+                <button type="button" class="chip-btn" data-yt="jfKfPfyJRdk">🎧 Lofi Hip Hop Radio</button>
+                <button type="button" class="chip-btn" data-yt="LXb3EKWsInQ">🌿 4K Doğa & Manzara</button>
+                <button type="button" class="chip-btn" data-yt="aqz-KE-bpKQ">🐰 Big Buck Bunny (Kısa Film)</button>
+              </div>
+            </div>
+            <div id="yt-player-container" class="yt-container hidden">
+              <div id="youtube-player"></div>
+            </div>
+          </div>
+
+          <!-- HTML5 Film / Lokal Dosya Oynatıcı -->
+          <div id="view-video" class="player-view hidden">
+            <div id="video-placeholder" class="stage-placeholder">
+              <div class="placeholder-icon">🎬</div>
+              <h2>Film & Lokal Dosya Senkronizasyonu</h2>
+              <p>
+                <strong>Yöntem 1 (Link):</strong> Doğrudan <code>.mp4</code> veya <code>.m3u8</code> film linkini yapıştırın, herkeste otomatik açılsın.<br />
+                <strong>Yöntem 2 (Lokal Dosya):</strong> Aynı film dosyası hepimizin bilgisayarında varsa <strong>"Bilgisayardan Film Seç"</strong> butonuna basın. İnternet kotası harcamadan, sıfır takılmayla senkronize izleyin!
+              </p>
+              <div class="preset-chips">
+                <button type="button" class="chip-video-btn" data-url="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4">
+                  🐰 Örnek Film Aç (Big Buck Bunny MP4)
+                </button>
+                <button type="button" class="chip-video-btn" data-url="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4">
+                  🐉 Örnek Kısa Film (Sintel MP4)
+                </button>
+              </div>
+            </div>
+            <video id="html5-video" class="html5-video hidden" controls playsinline crossorigin="anonymous">
+              Tarayıcınız video etiketini desteklemiyor.
+            </video>
+          </div>
+
+          <!-- WebRTC Ekran Paylaşımı Oynatıcı -->
+          <div id="view-screen" class="player-view hidden">
+            <div id="screen-placeholder" class="stage-placeholder">
+              <div class="placeholder-icon">🖥️</div>
+              <h2>Canlı Ekran & Sekme Paylaşımı</h2>
+              <p>
+                Bir kişi <strong>"Ekranımı Paylaş"</strong> butonuna basıp tarayıcı sekmesini seçtiğinde diğer herkes hem sesi duyar hem görüntüyü canlı izler.<br />
+                <small>💡 İpucu: Paylaşım penceresi açıldığında sol alttaki <strong>"Sekme sesini de paylaş"</strong> kutucuğunu işaretlemeyi unutmayın.</small>
+              </p>
+            </div>
+            <video id="screen-video" class="html5-video hidden" autoplay playsinline controls></video>
+          </div>
+
+          <!-- Ekranda Uçuşan Emoji Katmanı -->
+          <div id="emoji-overlay" class="emoji-overlay"></div>
+        </div>
+
+        <!-- Alt Bilgi & Anlık Emoji Gönderme Çubuğu -->
+        <div class="stage-footer">
+          <div class="sync-status">
+            <span class="status-dot"></span>
+            <span id="sync-status-text">Senkronizasyon aktif — Odaya hoş geldiniz!</span>
+          </div>
+
+          <div class="emoji-bar" aria-label="Anlık Tepki Emojileri">
+            <span class="emoji-bar-label">Tepki Gönder:</span>
+            <button type="button" class="emoji-btn" data-emoji="😂" title="Kahkaha">😂</button>
+            <button type="button" class="emoji-btn" data-emoji="😱" title="Şok">😱</button>
+            <button type="button" class="emoji-btn" data-emoji="🔥" title="Ateş">🔥</button>
+            <button type="button" class="emoji-btn" data-emoji="❤️" title="Kalp">❤️</button>
+            <button type="button" class="emoji-btn" data-emoji="👏" title="Alkış">👏</button>
+            <button type="button" class="emoji-btn" data-emoji="🍿" title="Mısır">🍿</button>
+            <button type="button" class="emoji-btn" data-emoji="🤯" title="Aklım Uçtu">🤯</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Sağ Panel: Katılımcılar ve Canlı Sohbet (Chat) -->
+      <aside class="chat-sidebar" id="chat-sidebar">
+        <!-- Odadaki Kişiler -->
+        <div class="sidebar-users">
+          <div class="sidebar-header">
+            <h3>👥 Odadakiler (<span id="user-count">1</span>)</h3>
+          </div>
+          <div class="user-chips" id="user-list"></div>
+        </div>
+
+        <!-- Sohbet Mesajları -->
+        <div class="chat-container">
+          <div class="sidebar-header">
+            <h3>💬 Canlı Sohbet</h3>
+          </div>
+          <div class="chat-messages" id="chat-messages"></div>
+
+          <form id="chat-form" class="chat-input-area">
+            <input
+              type="text"
+              id="chat-input"
+              placeholder="Bir mesaj yazın..."
+              maxlength="600"
+              autocomplete="off"
+            />
+            <button type="submit" class="btn-send" title="Gönder">
+              ➤
+            </button>
+          </form>
+        </div>
+      </aside>
+    </main>
+  </div>
+
+  <!-- Bildirim (Toast) Kutusu -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <!-- Socket.io & YouTube IFrame API & Uygulama Kodları -->
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="https://www.youtube.com/iframe_api"></script>
+  <script src="app.js"></script>
+</body>
+</html>

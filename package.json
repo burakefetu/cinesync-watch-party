@@ -1,0 +1,23 @@
+{
+  "name": "watch-party",
+  "version": "1.0.0",
+  "description": "Arkadaşlarla senkronize YouTube, Film (Link/Lokal Dosya) ve Ekran Paylaşımı ile birlikte izleme platformu",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "keywords": [
+    "watch-party",
+    "youtube-sync",
+    "webrtc",
+    "screen-share",
+    "socket.io",
+    "cinema"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.21.1",
+    "socket.io": "^4.8.1"
+  }
+}
